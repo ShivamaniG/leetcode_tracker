@@ -2,48 +2,62 @@ import React, { useState } from "react";
 import { TextField, Button, Typography, Box, Avatar, Card, CardContent } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
+interface ProfileApiResponse {
+  avatar: string;
+  // name: string; // provided but not used
+  username: string;
+  totalSolved: {
+    solved: number;
+    total: number;
+  };
+  breakdown: {
+    easy: { solved: number; total: number; };
+    medium: { solved: number; total: number; };
+    hard: { solved: number; total: number; };
+  };
+}
+
 interface ProfileProps {
   user: string | null;
-  setUser: (user: string | null) => void; 
-}
-
-interface ProfileData {
-  name: string;
-  birthday: string;
-  avatar: string;
-}
-
-interface SolvedData {
-  solvedProblem: number;
-  easySolved: number;
-  mediumSolved: number;
-  hardSolved: number;
+  setUser: (user: string | null) => void;
 }
 
 const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
   const [username, setUsername] = useState<string>("");
-  const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  const [solvedData, setSolvedData] = useState<SolvedData | null>(null);
-  const navigate = useNavigate(); // Fix: Add useNavigate inside the component
+
+  const [profileData, setProfileData] = useState<ProfileApiResponse | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>("");
+
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     setUser(null);
-    navigate("/"); // Redirects to Auth page
+    navigate("/"); // Redirect to Auth page
   };
+
   const fetchData = async () => {
     try {
-      const profileResponse = await fetch(`https://alfa-leetcode-api.onrender.com/${username}`);
-      const profile: ProfileData = await profileResponse.json();
-      setProfileData(profile);
-
-      const solvedResponse = await fetch(`https://alfa-leetcode-api.onrender.com/${username}/solved`);
-      const solved: SolvedData = await solvedResponse.json();
-      setSolvedData(solved);
+      if (!username) {
+        setErrorMessage("Username is required");
+        return;
+      }
+      // Construct the API URL using the provided username.
+      const response = await fetch(`http://localhost:5000/api/profile/${username}`);
+      if (!response.ok) {
+        // If the user doesn't exist or response is not OK, clear any profile data and show an error.
+        setProfileData(null);
+        setErrorMessage("User Doesn't Exist");
+        return;
+      }
+      const data: ProfileApiResponse = await response.json();
+      setProfileData(data);
+      setErrorMessage("");
     } catch (error) {
       console.error("Error fetching data: ", error);
+      setProfileData(null);
+      setErrorMessage("User Doesn't Exist");
     }
   };
-
   
   return (
     <Box sx={{ width: "80%", margin: "auto", mt: 4, fontFamily: "Poppins, sans-serif" }}>
@@ -65,33 +79,59 @@ const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
         <Button variant="outlined" fullWidth color="error" onClick={handleLogout}>
           Logout
         </Button>
+        {errorMessage && (
+          <Typography variant="h6" color="error" sx={{ mt: 2, textAlign: "center" }}>
+            {errorMessage}
+          </Typography>
+        )}
       </Card>
 
-      {profileData && solvedData && (
+      {profileData && (
         <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3, mt: 4 }}>
+          {/* Profile Details Card */}
           <Card sx={{ width: "48%", p: 3, boxShadow: 3, bgcolor: "#fff" }}>
             <CardContent>
-              <Typography variant="h5" sx={{ fontWeight: "bold", color: "#333" }}>Profile Details</Typography>
-              <Box display="flex" justifyContent="center" mt={2}>
-                <Avatar src={profileData.avatar || "https://via.placeholder.com/100"} sx={{ width: 120, height: 120 }} />
-              </Box>
-              <Typography sx={{ mt: 3, fontSize: "1.2rem", textAlign: "center", fontWeight: "bold", color: "#333" }}>
-                {profileData.name}
+              <Typography variant="h5" sx={{ fontWeight: "bold", color: "#333" }}>
+                Profile Details
               </Typography>
-              <Typography sx={{ fontSize: "1.1rem", textAlign: "center", color: "#555" }}>
-                {profileData.birthday}
+              <Box display="flex" justifyContent="center" mt={2}>
+                <Avatar
+                  src={profileData.avatar || "https://via.placeholder.com/100"}
+                  sx={{ width: 120, height: 120 }}
+                />
+              </Box>
+              <Typography
+                sx={{
+                  mt: 3,
+                  fontSize: "1.2rem",
+                  textAlign: "center",
+                  fontWeight: "bold",
+                  color: "#333",
+                }}
+              >
+                {profileData.username}
               </Typography>
             </CardContent>
           </Card>
 
           <Card sx={{ width: "48%", p: 3, boxShadow: 3, bgcolor: "#fff" }}>
             <CardContent>
-              <Typography variant="h5" sx={{ fontWeight: "bold", color: "#333" }}>Solved Problems</Typography>
-              <Typography variant="h6" sx={{ mt: 1 }}>Total Solved: {solvedData.solvedProblem}</Typography>
+              <Typography variant="h5" sx={{ fontWeight: "bold", color: "#333" }}>
+                Solved Problems
+              </Typography>
+              <Typography variant="h6" sx={{ mt: 1 }}>
+                Total Solved: {profileData.totalSolved.solved} / {profileData.totalSolved.total}
+              </Typography>
               <Box sx={{ mt: 3 }}>
-                <Typography sx={{ fontSize: "1.1rem" }}>Easy: {solvedData.easySolved}</Typography>
-                <Typography sx={{ fontSize: "1.1rem" }}>Medium: {solvedData.mediumSolved}</Typography>
-                <Typography sx={{ fontSize: "1.1rem" }}>Hard: {solvedData.hardSolved}</Typography>
+                <Typography sx={{ fontSize: "1.1rem" }}>
+                  Easy: {profileData.breakdown.easy.solved} / {profileData.breakdown.easy.total}
+                </Typography>
+                <Typography sx={{ fontSize: "1.1rem" }}>
+                  Medium: {profileData.breakdown.medium.solved} / {profileData.breakdown.medium.total}
+                </Typography>
+                <Typography sx={{ fontSize: "1.1rem" }}>
+                  Hard: {profileData.breakdown.hard.solved} / {profileData.breakdown.hard.total}
+                </Typography>
               </Box>
             </CardContent>
           </Card>
